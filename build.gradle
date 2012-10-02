@@ -1,0 +1,75 @@
+/*
+* Copyright 2012 the original author or authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+apply plugin: 'scala'
+
+defaultTasks = ['assemble']
+
+sourceCompatibility = '1.7'
+targetCompatibility = '1.7'
+
+repositories {
+  maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+  mavenCentral()
+}
+
+dependencies {
+  // Libraries needed to run the scala tools
+  scalaTools "org.scala-lang:scala-compiler:$version"
+  scalaTools "org.scala-lang:scala-library:$version"
+
+  // Libraries needed for scala api
+  compile "org.scala-lang:scala-library:$version"
+}
+
+task copyMod( type:Copy, dependsOn: 'classes' ) {
+  group = 'vert.x'
+  description = "Copy all needed stuff into the module directory"
+  destinationDir = project.file('build/copyMod')
+  into ("$modulename-v$version/") {
+    from "mod.json"
+  }
+  into ("$modulename-v$version/lib") {
+    from configurations.compile
+  }
+}
+
+// Package into build/libs/mod.zip
+task dist( type: Zip, dependsOn: 'copyMod' ) {
+  group = 'vert.x'
+  description = "Assembles a vert.x module in 'mod.zip' format"
+  destinationDir = project.file('build/dist')
+  archiveName = 'mod.zip'
+  from project.file("build/copyMod")
+}
+
+task release( type: Copy, dependsOn: 'dist' ) {
+  group = 'vert.x'
+  description = "Builds the module for use in the module repository into mods/$modulename-v$version"
+  destinationDir = project.file('build/release')
+  into ("$modulename-v$version") {
+    from 'build/dist/mod.zip'
+    from 'README.md'
+  }
+}
+
+task install(type: Copy, dependsOn: 'copyMod') {
+  try {
+    destinationDir = new File(System.getenv()['VERTX_MODS'])
+  } catch(NullPointerException e) {
+  }
+  from 'build/copyMod'
+}
